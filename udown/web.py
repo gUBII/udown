@@ -75,7 +75,7 @@ def start_download():
     quality = 'audio-only' if is_audio_only else request.form.get('quality', 'best')
     
     use_simple_serial = 'simple_serial' in request.form
-    name_template = '{playlist_index:02d} - {playlist_index}.{ext}' if use_simple_serial else request.form.get('name_template', '{playlist_index:02d} - {title}.{ext}')
+    name_template = '{playlist_index:02d}.{ext}' if use_simple_serial else request.form.get('name_template', '{playlist_index:02d} - {title}.{ext}')
 
     options = {
         'output_dir': request.form.get('output_dir', './downloads'),
