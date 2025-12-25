@@ -2,6 +2,7 @@ import yt_dlp
 from pathlib import Path
 import json
 import certifi
+import shutil
 
 class YtdlpLogger:
     def __init__(self, debug_fn=None, warning_fn=None, error_fn=None):
@@ -34,6 +35,12 @@ def sanitize_filename(name):
     return "".join(c for c in name if c.isalnum() or c in (' ', '.', '_')).rstrip()
 
 def _get_common_opts(progress_hook, cookies_file, log_level, logger):
+    js_runtimes = []
+    # Prefer local runtimes to silence yt-dlp warnings and unlock more formats
+    for runtime in ('node', 'deno'):
+        if shutil.which(runtime):
+            js_runtimes.append(runtime)
+
     opts = {
         'quiet': True,
         'progress_hooks': [progress_hook],
@@ -44,6 +51,8 @@ def _get_common_opts(progress_hook, cookies_file, log_level, logger):
         'nocheckcertificate': False,
         'ca_file': certifi.where(),
     }
+    if js_runtimes:
+        opts['js_runtimes'] = js_runtimes
     if cookies_file:
         opts['cookiefile'] = cookies_file
     if log_level == 'debug':
@@ -75,45 +84,69 @@ def download_playlist(playlist_url: str, output_dir: Path, quality: str, name_te
     if save_metadata:
         (playlist_output_path / "playlist_metadata.json").write_text(json.dumps(playlist_info, indent=4))
 
-    if not playlist_info.get('entries'):
+    entries = list(playlist_info.get('entries') or [])
+    if not entries:
         logger.warning(f"Playlist '{playlist_title}' appears to be empty. Nothing to download.")
         return playlist_info
 
-    # Create a dummy ydl instance just to prepare filenames
-    filename_preparer_opts = {'outtmpl': str(playlist_output_path / name_template)}
-    filename_preparer = yt_dlp.YoutubeDL(filename_preparer_opts)
-
-    for entry in playlist_info.get('entries', []):
+    # Build filenames ourselves to avoid relying on yt-dlp playlist context,
+    # then let yt-dlp fill in the final extension based on the selected format.
+    for pos, entry in enumerate(entries, start=1):
         if not entry:
             logger.warning("Skipping an empty entry in the playlist.")
             continue
-        
-        # Manually prepare the final filename using yt-dlp's own engine.
-        # This is the most robust way to ensure templates are expanded correctly.
-        try:
-            final_path = filename_preparer.prepare_filename(entry)
-        except Exception as e:
-            logger.error(f"Could not prepare filename for video '{entry.get('title')}'. Skipping. Error: {e}")
-            continue
+
+        p_index = entry.get('playlist_index') or pos
+        title = sanitize_filename(entry.get('title') or entry.get('id') or f"video_{p_index}")
+
+        filename = name_template
+        filename = filename.replace('{playlist_index:02d}', f'{p_index:02d}')
+        filename = filename.replace('{playlist_index}', str(p_index))
+        filename = filename.replace('{title}', title)
+
+        # Keep extension dynamic so yt-dlp can decide based on the actual format
+        if '{ext}' in filename:
+            filename = filename.replace('{ext}', '%(ext)s')
+        elif '%(ext)s' not in filename:
+            filename = f"{filename}.%(ext)s"
+
+        final_outtmpl = str(playlist_output_path / filename)
 
         download_opts = {
             **common_opts,
             'format': get_format_selection(quality),
-            'outtmpl': final_path,
+            'outtmpl': {'default': final_outtmpl},
+            'overwrites': False,  # avoid clobbering if anything goes wrong with naming
         }
 
+        postprocessors = []
         if audio_format == 'mp3':
             logger.warning("MP3 conversion requires FFmpeg to be installed on your system.")
-            download_opts['postprocessors'] = [{
+            postprocessors.append({
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
-            }]
+            })
+        else:
+            # Remux to mp4 locally to normalize extension/container when formats differ
+            postprocessors.append({
+                'key': 'FFmpegVideoRemuxer',
+                'preferredformat': 'mp4',
+            })
+            download_opts['merge_output_format'] = 'mp4'
+
+        if postprocessors:
+            download_opts['postprocessors'] = postprocessors
+
+        video_url = entry.get('webpage_url') or entry.get('url') or (f"https://www.youtube.com/watch?v={entry.get('id')}" if entry.get('id') else None)
+        if not video_url:
+            logger.error(f"Failed to determine URL for playlist item at position {p_index}.")
+            continue
 
         try:
             with yt_dlp.YoutubeDL(download_opts) as ydl:
-                ydl.download([entry['webpage_url']])
+                ydl.download([video_url])
         except Exception as e:
-            logger.error(f"Failed to download video '{entry.get('title')}': {e}")
+            logger.error(f"Failed to download video '{entry.get('title') or entry.get('id') or p_index}': {e}")
 
     return playlist_info
