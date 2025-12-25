@@ -35,11 +35,13 @@ def sanitize_filename(name):
     return "".join(c for c in name if c.isalnum() or c in (' ', '.', '_')).rstrip()
 
 def _get_common_opts(progress_hook, cookies_file, log_level, logger):
-    js_runtimes = []
-    # Prefer local runtimes to silence yt-dlp warnings and unlock more formats
+    js_runtime_map = {}
+    # Prefer local runtimes to silence yt-dlp warnings and unlock more formats.
+    # yt-dlp expects a dict: {runtime_name: {config}}; empty config uses PATH.
     for runtime in ('node', 'deno'):
-        if shutil.which(runtime):
-            js_runtimes.append(runtime)
+        runtime_path = shutil.which(runtime)
+        if runtime_path:
+            js_runtime_map[runtime] = {'path': runtime_path}
 
     opts = {
         'quiet': True,
@@ -51,8 +53,10 @@ def _get_common_opts(progress_hook, cookies_file, log_level, logger):
         'nocheckcertificate': False,
         'ca_file': certifi.where(),
     }
-    if js_runtimes:
-        opts['js_runtimes'] = js_runtimes
+    if js_runtime_map:
+        opts['js_runtimes'] = js_runtime_map
+        # Enable EJS solver from GitHub to satisfy YouTube's JS challenges
+        opts['remote_components'] = ['ejs:github']
     if cookies_file:
         opts['cookiefile'] = cookies_file
     if log_level == 'debug':
@@ -120,8 +124,10 @@ def download_playlist(playlist_url: str, output_dir: Path, quality: str, name_te
         }
 
         postprocessors = []
+        ffmpeg_present = bool(shutil.which('ffmpeg'))
         if audio_format == 'mp3':
-            logger.warning("MP3 conversion requires FFmpeg to be installed on your system.")
+            if not ffmpeg_present:
+                logger.warning("MP3 conversion requires FFmpeg to be installed on your system.")
             postprocessors.append({
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
@@ -129,11 +135,12 @@ def download_playlist(playlist_url: str, output_dir: Path, quality: str, name_te
             })
         else:
             # Remux to mp4 locally to normalize extension/container when formats differ
-            postprocessors.append({
-                'key': 'FFmpegVideoRemuxer',
-                'preferredformat': 'mp4',
-            })
-            download_opts['merge_output_format'] = 'mp4'
+            if ffmpeg_present:
+                postprocessors.append({
+                    'key': 'FFmpegVideoRemuxer',
+                    'preferredformat': 'mp4',
+                })
+                download_opts['merge_output_format'] = 'mp4'
 
         if postprocessors:
             download_opts['postprocessors'] = postprocessors
