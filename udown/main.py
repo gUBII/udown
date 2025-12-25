@@ -1,7 +1,7 @@
 import click
 from pathlib import Path
 import sys
-from udown import downloader
+from udown import downloader, version_formatter
 
 class CliProgressHook:
     def __init__(self):
@@ -112,6 +112,21 @@ def web():
     click.echo("Navigate to http://127.0.0.1:5000 in your browser.")
     web.main()
 
+
+@cli.command()
+@click.option('--source-root', default='downloads/quran_Serailler', show_default=True, type=click.Path())
+@click.option('--target-root', default='downloads/quran_Serailler_serialized', show_default=True, type=click.Path())
+@click.option('--start-version', default=1, show_default=True, type=int)
+@click.option('--end-version', default=7, show_default=True, type=int)
+def format_versions(source_root, target_root, start_version, end_version):
+    """Serially copy Version_1..N into one numbered folder for USB players."""
+    total = version_formatter.format_versions(
+        source_root=source_root,
+        target_root=target_root,
+        start_version=start_version,
+        end_version=end_version,
+    )
+    click.echo(f"Formatted {total} files into {target_root}")
+
 if __name__ == '__main__':
     cli()
-

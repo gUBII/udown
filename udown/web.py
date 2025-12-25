@@ -4,6 +4,7 @@ import json
 import queue
 import threading
 from udown import downloader
+from udown import version_formatter
 
 app = Flask(__name__)
 # In-memory queue to hold progress messages
@@ -67,6 +68,10 @@ def download_task(playlist_url, options, progress_hook, logger):
 def index():
     return render_template('index.html')
 
+@app.route('/format')
+def format_page():
+    return render_template('version_formatter.html')
+
 @app.route('/download', methods=['POST'])
 def start_download():
     playlist_url = request.form['playlist_url']
@@ -103,6 +108,25 @@ def start_download():
     thread.start()
 
     return {"message": "Download started."}
+
+
+@app.route('/format_versions', methods=['POST'])
+def format_versions():
+    source_root = Path(request.form.get('source_root', './downloads/quran_Serailler'))
+    target_root = Path(request.form.get('target_root', './downloads/quran_Serailler_serialized'))
+    start_version = int(request.form.get('start_version', 1))
+    end_version = int(request.form.get('end_version', 7))
+
+    try:
+        total = version_formatter.format_versions(
+            source_root=source_root,
+            target_root=target_root,
+            start_version=start_version,
+            end_version=end_version,
+        )
+        return {"message": f"Formatted {total} files into {target_root}"}
+    except Exception as e:
+        return {"error": str(e)}, 500
 
 @app.route('/stream')
 def stream():

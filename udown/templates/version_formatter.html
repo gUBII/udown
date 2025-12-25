@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Version Formatter - udown</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">udown</a>
+            <div>
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">Downloader</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="{{ url_for('format_page') }}">Version formatter</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <header class="mb-4">
+            <h1 class="h4">Version Formatter</h1>
+            <p class="text-muted mb-0">Merge Version_1..Version_7 into one serially numbered folder for your audio player.</p>
+        </header>
+
+        <div class="card">
+            <div class="card-body">
+                <form id="format-form">
+                    <div class="mb-3">
+                        <label for="source_root" class="form-label">Source root</label>
+                        <input type="text" class="form-control" id="source_root" name="source_root" value="./downloads/quran_Serailler" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="target_root" class="form-label">Target folder</label>
+                        <input type="text" class="form-control" id="target_root" name="target_root" value="./downloads/quran_Serailler_serialized" required>
+                        <div class="form-text">Files will be copied here as 001, 002, ... with ASCII-safe names.</div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="start_version" class="form-label">Start version</label>
+                            <input type="number" class="form-control" id="start_version" name="start_version" value="1" min="1">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="end_version" class="form-label">End version</label>
+                            <input type="number" class="form-control" id="end_version" name="end_version" value="7" min="1">
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary" id="format-button">Run Formatter</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <div class="alert" id="format-result" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const form = document.getElementById('format-form');
+        const resultBox = document.getElementById('format-result');
+        const button = document.getElementById('format-button');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            button.disabled = true;
+            button.textContent = 'Formatting...';
+            resultBox.style.display = 'none';
+
+            const formData = new FormData(form);
+            try {
+                const resp = await fetch('/format_versions', {
+                    method: 'POST',
+                    body: formData,
+                });
+                const data = await resp.json();
+                resultBox.style.display = 'block';
+                if (resp.ok) {
+                    resultBox.className = 'alert alert-success';
+                    resultBox.textContent = data.message;
+                } else {
+                    resultBox.className = 'alert alert-danger';
+                    resultBox.textContent = data.error || 'Formatting failed';
+                }
+            } catch (err) {
+                resultBox.style.display = 'block';
+                resultBox.className = 'alert alert-danger';
+                resultBox.textContent = 'Unexpected error: ' + err;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Run Formatter';
+            }
+        });
+    </script>
+</body>
+</html>
