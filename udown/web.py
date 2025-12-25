@@ -41,7 +41,7 @@ class WebProgressHook:
         pass
 
 
-def download_task(playlist_url, options, progress_hook):
+def download_task(playlist_url, options, progress_hook, logger):
     try:
         progress_queue.put("event: message\ndata: Starting download...\n\n")
         playlist_info = downloader.download_playlist(
@@ -52,7 +52,8 @@ def download_task(playlist_url, options, progress_hook):
             cookies_file=options.get('cookies_file'),
             log_level='info',
             save_metadata=options.get('save_metadata', False),
-            progress_hook=progress_hook
+            progress_hook=progress_hook,
+            logger=logger
         )
         progress_queue.put(f"event: message\ndata: Successfully downloaded playlist: '{playlist_info['title']}'\n\n")
     except (ValueError, RuntimeError, Exception) as e:
@@ -85,8 +86,14 @@ def start_download():
     }
 
     progress_hook = WebProgressHook(progress_queue)
+    
+    # Create a logger that puts messages into the queue for the web UI
+    web_logger = downloader.YtdlpLogger(
+        warning_fn=lambda msg: progress_queue.put(f"event: message\ndata: ⚠️ WARN: {msg}\n\n"),
+        error_fn=lambda msg: progress_queue.put(f"event: message\ndata: ❌ ERROR: {msg}\n\n")
+    )
 
-    thread = threading.Thread(target=download_task, args=(playlist_url, options, progress_hook))
+    thread = threading.Thread(target=download_task, args=(playlist_url, options, progress_hook, web_logger))
     thread.start()
 
     return {"message": "Download started."}

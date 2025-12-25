@@ -4,17 +4,20 @@ import json
 import certifi
 
 class YtdlpLogger:
+    def __init__(self, debug_fn=None, warning_fn=None, error_fn=None):
+        self._debug = debug_fn or (lambda msg: None)
+        self._warning = warning_fn or (lambda msg: None)
+        self._error = error_fn or (lambda msg: None)
+
     def debug(self, msg):
-        if "yt-dlp" in msg:
-            pass 
-        else:
-            print(msg)
+        # yt-dlp sends a lot of debug info, we can filter it here if needed
+        self._debug(msg)
 
     def warning(self, msg):
-        print(f"WARNING: {msg}")
+        self._warning(msg)
 
     def error(self, msg):
-        print(f"ERROR: {msg}")
+        self._error(msg)
 
 def get_format_selection(quality: str) -> str:
     """Returns the yt-dlp format selection string based on the quality."""
@@ -32,7 +35,7 @@ def sanitize_filename(name):
     return "".join(c for c in name if c.isalnum() or c in (' ', '.', '_')).rstrip()
 
 def download_playlist(playlist_url: str, output_dir: Path, quality: str, name_template: str, 
-                      cookies_file: str, log_level: str, save_metadata: bool, progress_hook):
+                      cookies_file: str, log_level: str, save_metadata: bool, progress_hook, logger):
     """Downloads a single YouTube playlist."""
     
     common_opts = {
@@ -40,7 +43,7 @@ def download_playlist(playlist_url: str, output_dir: Path, quality: str, name_te
         'progress_hooks': [progress_hook],
         'continuedl': True,
         'ignoreerrors': True,
-        'logger': YtdlpLogger(),
+        'logger': logger,
         'http_headers': {'User-Agent': 'Mozilla/5.0'},
         'nocheckcertificate': False,
         'ca_file': certifi.where(),

@@ -3,19 +3,6 @@ from pathlib import Path
 import sys
 from udown import downloader
 
-class YtdlpLogger:
-    def debug(self, msg):
-        if "yt-dlp" in msg:
-            pass 
-        else:
-            click.echo(msg)
-
-    def warning(self, msg):
-        click.secho(f"WARNING: {msg}", fg="yellow")
-
-    def error(self, msg):
-        click.secho(f"ERROR: {msg}", fg="red")
-
 class CliProgressHook:
     def __init__(self):
         self.pbar = None
@@ -87,6 +74,11 @@ def download(playlist_urls, input_file, output_dir, quality, audio, name_templat
     final_quality = 'audio-only' if audio else quality
     final_template = '{playlist_index:02d}.{ext}' if simple_serial else name_template
 
+    cli_logger = downloader.YtdlpLogger(
+        warning_fn=lambda msg: click.secho(f"WARNING: {msg}", fg="yellow"),
+        error_fn=lambda msg: click.secho(f"ERROR: {msg}", fg="red")
+    )
+
     for i, url in enumerate(urls, 1):
         click.secho(f"\nProcessing playlist {i}/{len(urls)}: {url}", fg="cyan")
         progress_hook = CliProgressHook()
@@ -99,7 +91,8 @@ def download(playlist_urls, input_file, output_dir, quality, audio, name_templat
                 cookies_file=cookies_file,
                 log_level=log_level,
                 save_metadata=save_metadata,
-                progress_hook=progress_hook
+                progress_hook=progress_hook,
+                logger=cli_logger
             )
             click.secho(f"Successfully downloaded playlist: '{playlist_info['title']}'", fg='green')
         except (ValueError, RuntimeError) as e:
