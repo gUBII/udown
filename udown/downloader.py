@@ -79,37 +79,37 @@ def download_playlist(playlist_url: str, output_dir: Path, quality: str, name_te
         logger.warning(f"Playlist '{playlist_title}' appears to be empty. Nothing to download.")
         return playlist_info
 
-    download_opts = {
-        **common_opts,
-        'format': get_format_selection(quality),
-        'outtmpl': str(playlist_output_path / name_template),
-    }
+    # Loop through entries and create a new downloader instance for each video.
+    # This is more robust than reusing an instance.
+    for entry in playlist_info.get('entries', []):
+        if not entry:
+            logger.warning("Skipping an empty entry in the playlist.")
+            continue
 
-    if audio_format == 'mp3':
-        logger.warning("MP3 conversion requires FFmpeg to be installed on your system.")
-        download_opts['postprocessors'] = [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }]
+        playlist_index = entry.get('playlist_index')
+        if playlist_index is None:
+            logger.warning(f"Could not find a playlist index for video '{entry.get('title', entry.get('id'))}'. Skipping.")
+            continue
+        
+        download_opts = {
+            **common_opts,
+            'format': get_format_selection(quality),
+            'outtmpl': str(playlist_output_path / name_template),
+            'playlist_items': str(playlist_index),
+        }
 
-    # Create one downloader instance to reuse
-    with yt_dlp.YoutubeDL(download_opts) as ydl:
-        for entry in playlist_info.get('entries', []):
-            if not entry:
-                logger.warning("Skipping an empty entry in the playlist.")
-                continue
+        if audio_format == 'mp3':
+            logger.warning("MP3 conversion requires FFmpeg to be installed on your system.")
+            download_opts['postprocessors'] = [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }]
 
-            playlist_index = entry.get('playlist_index')
-            if playlist_index is None:
-                logger.warning(f"Could not find a playlist index for video '{entry.get('title', entry.get('id'))}'. Skipping.")
-                continue
-            
-            ydl.params['playlist_items'] = str(playlist_index)
-            
-            try:
+        try:
+            with yt_dlp.YoutubeDL(download_opts) as ydl:
                 ydl.download([playlist_url])
-            except Exception as e:
-                logger.error(f"Failed to download video #{playlist_index}: {e}")
+        except Exception as e:
+            logger.error(f"Failed to download video #{playlist_index}: {e}")
 
     return playlist_info
