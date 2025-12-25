@@ -53,7 +53,8 @@ def download_task(playlist_url, options, progress_hook, logger):
             log_level='info',
             save_metadata=options.get('save_metadata', False),
             progress_hook=progress_hook,
-            logger=logger
+            logger=logger,
+            audio_format=options.get('audio_format')
         )
         progress_queue.put(f"event: message\ndata: Successfully downloaded playlist: '{playlist_info['title']}'\n\n")
     except (ValueError, RuntimeError, Exception) as e:
@@ -72,9 +73,14 @@ def start_download():
     if not playlist_url:
         return {"error": "Playlist URL is required."}, 400
 
-    is_audio_only = 'audio_only' in request.form
-    quality = 'audio-only' if is_audio_only else request.form.get('quality', 'best')
-    
+    quality = request.form.get('quality', 'best')
+    audio_format = None
+    if 'to_mp3' in request.form:
+        quality = 'audio-only'
+        audio_format = 'mp3'
+    elif 'audio_only' in request.form:
+        quality = 'audio-only'
+
     use_simple_serial = 'simple_serial' in request.form
     name_template = '{playlist_index:02d}.{ext}' if use_simple_serial else request.form.get('name_template', '{playlist_index:02d} - {title}.{ext}')
 
@@ -83,11 +89,11 @@ def start_download():
         'quality': quality,
         'name_template': name_template,
         'save_metadata': 'save_metadata' in request.form,
+        'audio_format': audio_format,
     }
 
     progress_hook = WebProgressHook(progress_queue)
     
-    # Create a logger that puts messages into the queue for the web UI
     web_logger = downloader.YtdlpLogger(
         warning_fn=lambda msg: progress_queue.put(f"event: message\ndata: ⚠️ WARN: {msg}\n\n"),
         error_fn=lambda msg: progress_queue.put(f"event: message\ndata: ❌ ERROR: {msg}\n\n")

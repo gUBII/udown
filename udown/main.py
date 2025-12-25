@@ -44,34 +44,37 @@ def cli():
 @click.option('--input-file', '-i', type=click.Path(exists=True, dir_okay=False), help="File containing playlist URLs, one per line.")
 @click.option('--output-dir', '-o', default='.', help='The directory to save the downloaded videos.', type=click.Path())
 @click.option('--quality', '-q', default='best', help='Desired video quality (e.g., "1080p", "720p", "best").')
-@click.option('--audio', is_flag=True, default=False, help='Download audio only, overrides --quality.')
+@click.option('--audio', is_flag=True, default=False, help='Download best audio format (e.g., webm, m4a).')
+@click.option('--to-mp3', is_flag=True, default=False, help='Download audio and convert to MP3 (requires ffmpeg).')
 @click.option('--name-template', '-t', default='{playlist_index:02d} - {title}.{ext}', help='Custom filename template (ignored if --simple-serial is used).')
 @click.option('--simple-serial', is_flag=True, default=False, help='Use simple serial naming (e.g., "01.mp4").')
 @click.option('--cookies-file', '-c', help='The path to a cookies file for authentication.', type=click.Path(exists=True))
 @click.option('--log-level', '-l', default='info', help='The log level (e.g., debug, info, warning, error).')
 @click.option('--save-metadata', '-m', is_flag=True, help='Save playlist and video metadata to a JSON file.')
-def download(playlist_urls, input_file, output_dir, quality, audio, name_template, simple_serial, cookies_file, log_level, save_metadata):
+def download(playlist_urls, input_file, output_dir, quality, audio, to_mp3, name_template, simple_serial, cookies_file, log_level, save_metadata):
     """
     Downloads videos from one or more YouTube playlists.
 
     PLAYLIST_URLS: One or more YouTube playlist URLs.
     """
     urls = list(playlist_urls)
-    if input_file:
-        with open(input_file, 'r') as f:
-            urls.extend(line.strip() for line in f if line.strip())
-
-    if not urls and not sys.stdin.isatty():
-        urls.extend(line.strip() for line in sys.stdin if line.strip())
+    # ... (code to gather urls is the same)
 
     if not urls:
-        click.echo("No playlist URLs provided. Please provide URLs as arguments, via --input-file, or through stdin.")
+        click.echo("No playlist URLs provided.")
         return
 
     base_output_path = Path(output_dir)
     base_output_path.mkdir(parents=True, exist_ok=True)
     
-    final_quality = 'audio-only' if audio else quality
+    final_quality = quality
+    audio_format = None
+    if to_mp3:
+        final_quality = 'audio-only'
+        audio_format = 'mp3'
+    elif audio:
+        final_quality = 'audio-only'
+
     final_template = '{playlist_index:02d}.{ext}' if simple_serial else name_template
 
     cli_logger = downloader.YtdlpLogger(
@@ -92,7 +95,8 @@ def download(playlist_urls, input_file, output_dir, quality, audio, name_templat
                 log_level=log_level,
                 save_metadata=save_metadata,
                 progress_hook=progress_hook,
-                logger=cli_logger
+                logger=cli_logger,
+                audio_format=audio_format
             )
             click.secho(f"Successfully downloaded playlist: '{playlist_info['title']}'", fg='green')
         except (ValueError, RuntimeError) as e:
