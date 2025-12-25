@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: udown
+Version: 0.1.0
+Requires-Dist: yt-dlp
+Requires-Dist: click
+Requires-Dist: Flask
+Requires-Dist: certifi
+Dynamic: requires-dist

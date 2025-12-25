@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>udown - YouTube Playlist Archiver</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container mt-5">
+        <header class="text-center mb-4">
+            <h1>udown</h1>
+            <p class="lead">YouTube Playlist Archiver</p>
+        </header>
+
+        <div class="card">
+            <div class="card-body">
+                <form id="download-form">
+                    <div class="mb-3">
+                        <label for="playlist_url" class="form-label">YouTube Playlist URL</label>
+                        <input type="url" class="form-control" id="playlist_url" name="playlist_url" required placeholder="https://www.youtube.com/playlist?list=...">
+                    </div>
+                    
+                    <div class="accordion" id="optionsAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOptions" aria-expanded="false" aria-controls="collapseOptions">
+                                    Advanced Options
+                                </button>
+                            </h2>
+                            <div id="collapseOptions" class="accordion-collapse collapse" data-bs-parent="#optionsAccordion">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="output_dir" class="form-label">Output Directory</label>
+                                            <input type="text" class="form-control" id="output_dir" name="output_dir" value="./downloads">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="quality" class="form-label">Video Quality</label>
+                                            <select class="form-select" id="quality" name="quality">
+                                                <option value="best">Best</option>
+                                                <option value="1080p">1080p</option>
+                                                <option value="720p">720p</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="audio_only" name="audio_only">
+                                        <label class="form-check-label" for="audio_only">Download Audio Only</label>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="name_template" class="form-label">Custom Filename Template</label>
+                                        <input type="text" class="form-control" id="name_template" name="name_template" value="{playlist_index:02d} - {title}.{ext}">
+                                    </div>
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="simple_serial" name="simple_serial">
+                                        <label class="form-check-label" for="simple_serial">Use Simple Serial Filename (e.g., "01.mp4")</label>
+                                    </div>
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" id="save_metadata" name="save_metadata">
+                                        <label class="form-check-label" for="save_metadata">
+                                            Save playlist metadata (playlist_metadata.json)
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary" id="download-button">Start Download</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="progress-container" class="mt-4" style="display: none;">
+            <h3>Download Progress</h3>
+            <pre id="logs" class="p-3 bg-light border rounded"></pre>
+            <div id="video-progress-bars"></div>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('audio_only').addEventListener('change', function() {
+            document.getElementById('quality').disabled = this.checked;
+        });
+        document.getElementById('simple_serial').addEventListener('change', function() {
+            document.getElementById('name_template').disabled = this.checked;
+        });
+    </script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
