@@ -79,23 +79,27 @@ def download_playlist(playlist_url: str, output_dir: Path, quality: str, name_te
         logger.warning(f"Playlist '{playlist_title}' appears to be empty. Nothing to download.")
         return playlist_info
 
-    # Loop through entries and create a new downloader instance for each video.
-    # This is more robust than reusing an instance.
+    # Create a dummy ydl instance just to prepare filenames
+    filename_preparer_opts = {'outtmpl': str(playlist_output_path / name_template)}
+    filename_preparer = yt_dlp.YoutubeDL(filename_preparer_opts)
+
     for entry in playlist_info.get('entries', []):
         if not entry:
             logger.warning("Skipping an empty entry in the playlist.")
             continue
-
-        playlist_index = entry.get('playlist_index')
-        if playlist_index is None:
-            logger.warning(f"Could not find a playlist index for video '{entry.get('title', entry.get('id'))}'. Skipping.")
-            continue
         
+        # Manually prepare the final filename using yt-dlp's own engine.
+        # This is the most robust way to ensure templates are expanded correctly.
+        try:
+            final_path = filename_preparer.prepare_filename(entry)
+        except Exception as e:
+            logger.error(f"Could not prepare filename for video '{entry.get('title')}'. Skipping. Error: {e}")
+            continue
+
         download_opts = {
             **common_opts,
             'format': get_format_selection(quality),
-            'outtmpl': str(playlist_output_path / name_template),
-            'playlist_items': str(playlist_index),
+            'outtmpl': final_path,
         }
 
         if audio_format == 'mp3':
@@ -108,8 +112,8 @@ def download_playlist(playlist_url: str, output_dir: Path, quality: str, name_te
 
         try:
             with yt_dlp.YoutubeDL(download_opts) as ydl:
-                ydl.download([playlist_url])
+                ydl.download([entry['webpage_url']])
         except Exception as e:
-            logger.error(f"Failed to download video #{playlist_index}: {e}")
+            logger.error(f"Failed to download video '{entry.get('title')}': {e}")
 
     return playlist_info
