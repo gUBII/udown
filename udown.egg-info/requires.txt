@@ -1,4 +1,0 @@
-yt-dlp
-click
-Flask
-certifi

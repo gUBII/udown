@@ -1,5 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('download-form');
+    if (!form) return;
+
     const logs = document.getElementById('logs');
     const progressContainer = document.getElementById('progress-container');
     const downloadButton = document.getElementById('download-button');
@@ -26,8 +28,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (response.ok) {
+                const payload = await response.json();
+                const jobId = payload.job_id;
+                if (!jobId) {
+                    logs.textContent = 'Error: Server did not return a job id';
+                    resetUI();
+                    return;
+                }
                 // Listen for progress events
-                eventSource = new EventSource('/stream');
+                eventSource = new EventSource(`/stream/${encodeURIComponent(jobId)}`);
 
                 eventSource.addEventListener('message', (event) => {
                     logs.textContent += event.data + '\n';
@@ -56,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                eventSource.addEventListener('error', (event) => {
+                eventSource.addEventListener('job_error', (event) => {
                     logs.textContent += `Error: ${event.data}\n`;
                     logs.scrollTop = logs.scrollHeight;
                     eventSource.close();

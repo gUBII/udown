@@ -1,2 +1,16 @@
-/.pytest_cache
-downloads/dalal/DalailulKhairat/{playlist_index:02d} - {title}.mp3
+.DS_Store
+__pycache__/
+*.py[cod]
+*.egg-info/
+/.pytest_cache/
+/.mypy_cache/
+/.ruff_cache/
+/.coverage
+htmlcov/
+dist/
+build/
+venv/
+.venv/
+
+# Local output
+downloads/
