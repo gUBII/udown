@@ -3,13 +3,13 @@ version = 1
 name = "udown"
 
 [setup]
-script = ""
+script = '''
+python -m pip install --upgrade pip
+python -m pip install -e .
+brew install ffmpeg node
+'''
 
 [[actions]]
 name = "Run"
 icon = "run"
-command = '''
-```bash
-udown web --host 127.0.0.1 --port 5000
-```
-'''
+command = "udown web --host 127.0.0.1 --port 5000"
